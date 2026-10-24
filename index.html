@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>대구 맛집·카페 지도</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<style>
+:root{--ink:#1b2733;--sub:#5d6b79;--line:#d8dee4;--bg:#f3f5f7;--rest:#d8472b;--cafe:#217a82}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Noto Sans KR',system-ui,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55}
+header{padding:14px 16px 10px;display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline}
+h1{font-size:20px;margin:0}
+.legend{font-size:13px;color:var(--sub)}
+#map{height:62vh;min-height:360px;width:100%;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.pin{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.4)}
+.pin.s{background:#1f4fa3}.pin.t{background:#6a3fa0}.pin.r{background:var(--rest)}.pin.c{background:var(--cafe)}
+main{max-width:980px;margin:0 auto;padding:8px 16px 40px}
+h2{font-size:17px;margin:26px 0 10px;display:flex;align-items:center;gap:8px}
+h2 i{font-style:normal;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:14px}
+.rest h2 i{background:var(--rest)}.cafe h2 i{background:var(--cafe)}
+ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px}
+li{background:#fff;border:1px solid var(--line);border-radius:8px;padding:11px 13px;cursor:pointer}
+li:hover{border-color:var(--ink)}
+.n{font-weight:700;font-size:15px}
+.t{font-size:13px;color:var(--ink);margin:2px 0}
+.a{font-size:12.5px;color:var(--sub)}
+.l{font-size:12.5px;margin-top:5px}
+a{color:#0b6b3a;font-weight:500}
+.note{font-size:12.5px;color:var(--sub);margin-top:28px}
+.leaflet-popup-content{font-family:inherit;font-size:13px;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+<h1>대구 맛집·카페 지도</h1>
+<span class="legend">🍚 식당 14곳 · ☕ 카페 10곳 · ⚾ 라이온즈파크 · 🚆 동대구역 — 확대하면 아이콘으로 위치가 보여요</span>
+</header>
+<div id="map"></div>
+<main>
+<section class="rest"><h2><i>🍚</i>식당</h2><ul id="rest"></ul></section>
+<section class="cafe"><h2><i>☕</i>카페·디저트</h2><ul id="cafe"></ul></section>
+<p class="note">주소 옆 링크를 누르면 네이버 지도 검색 결과로 이동해요. 영업시간·휴무일은 방문 전에 확인해 주세요.</p>
+</main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+<script>
+const P=[
+// type, name, lat, lng, desc, address
+['r','군위식당',35.87236,128.59305,'돼지국밥·수육백반 — 경상감영공원 근처 국밥골목, 수육이 푸짐한 국밥집','대구 중구 포정동 21-3 101호'],
+['r','무시무시',35.86883,128.59974,'일식당 — 공평로의 일본식 요리집','대구 중구 공평로 53'],
+['r','마코토',35.86662,128.59669,'라멘 전문점 — 키오스크 주문, 매운 라멘이 인기','대구 중구 봉산동 21-1'],
+['r','로벤 범어점',35.85995,128.63435,'피자·파스타 — 리조또와 피자 위주의 이탈리안 레스토랑','대구 수성구 달구벌대로495길 22 1층'],
+['r','아주심기',35.86917,128.61193,'한식당','대구 중구 국채보상로151길 9'],
+['r','걸리버막창 동성로점',35.86661,128.59864,'돼지막창구이 — 대구 막창으로 유명, 된장찌개와 함께','대구 중구 삼덕동1가 28-6 2층'],
+['r','한옥집김치찜 지산점',35.82270,128.63898,'김치찜·김치찌개 — 저렴한 가격, 라면사리 추가','대구 수성구 지산동 1285-13'],
+['r','제주섭이네해장국',35.88366,128.63211,'제주식 해장국 — 24시간 영업','대구 동구 신암남로 164'],
+['r','윤정김밥',35.88550,128.63388,'김밥·분식 — 기본 김밥 2,500원대, 검정쌀밥','대구 동구 아양로 190 동보맨션상가 1층 16호'],
+['r','회성각',35.85521,128.58327,'중식당 — 탕수육이 유명한 대구식 중화요리','대구 남구 현충로 256'],
+['r','대동강식당',35.84388,128.60392,'평양냉면 — 물냉면이 대표 메뉴','대구 남구 봉덕동 948-13'],
+['r','신가네쑥밀면',35.89835,128.61609,'쑥밀면·칼국수·손만두 — 가격이 저렴한 밀면집','대구 북구 검단로 8-6 (복현동)'],
+['r','나무906',35.98970,128.63538,'이탈리안 레스토랑 겸 카페 — 팔공산 인근, 분위기 좋은 파스타·요리','대구 동구 파계로131길 45 (중대동)'],
+['r','공주얼큰이칼국수',35.85150,128.62337,'얼큰 칼국수·돈가스 — 점심 위주 영업','대구 수성구 범어천로 49'],
+['c','힙스',35.86959,128.59964,'카페','대구 중구 동성로4길 109'],
+['c','목영커피바',35.86893,128.59982,'커피바 — 무시무시와 같은 건물','대구 중구 공평로 53'],
+['c','실재계',35.87224,128.59705,'조용한 책·음악 카페 — 혼자 책 읽기 좋은 곳, 위스키·치즈케이크','대구 중구 경상감영길 175'],
+['c','히어히어프렌즈홈',35.87414,128.59186,'카페·스튜디오 (히어히어 홈앤스튜디오)','대구 중구 북성로1가 40-6'],
+['c','피삼사',35.87007,128.60096,'핸드드립 커피·디저트 카페 — 얼그레이잼 팬케이크','대구 중구 국채보상로 643 2층'],
+['c','커피장인 경대북문점',35.89507,128.61137,'직접 로스팅하는 드립커피 카페','대구 북구 경북대 북문 인근'],
+['c','음악마을',35.87312,128.59789,'지하 카페 — 팥빙수·블루베리빙수','대구 중구 교동2길 25'],
+['c','파네토네',35.89083,128.62636,'베이커리 카페 — 빵과 커피','대구 북구 복현동 복현푸르지오 상가 119호'],
+['c','최가네케익',35.86679,128.59540,'케이크·디저트 — 사블레브르통, 빙수','대구 중구 동성로1길 29-6'],
+['s','삼성라이온즈파크',35.84090,128.68149,'야구장 — 삼성 라이온즈 홈구장','대구 수성구 야구전설로 1'],
+['t','동대구역',35.87967,128.62848,'KTX·SRT·지하철 역','대구 동구 동대구로 550'],
+['c','티클래스',35.86996,128.59705,'스페셜티 커피와 프렌치 케이크 — 몽블랑','대구 중구 동성로2길 87']
+];
+const map=L.map('map',{zoomControl:true});
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(map);
+const nv=n=>'https://map.naver.com/p/search/'+encodeURIComponent('대구 '+n);
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pts=[],mk=[];
+P.forEach((p,i)=>{
+ const [t,n,la,ln,d,a]=p;
+ const m=L.marker([la,ln],{icon:L.divIcon({className:'',html:`<div class="pin ${t}">${{r:'🍚',c:'☕',s:'⚾',t:'🚆'}[t]}</div>`,iconSize:[34,34],iconAnchor:[17,17],popupAnchor:[0,-16]}),title:n}).addTo(map);
+ m.bindPopup(`<b>${esc(n)}</b><br>${esc(d)}<br><span style="color:#5d6b79">${esc(a)}</span><br><a href="${nv(n)}" target="_blank" rel="noopener">네이버 지도에서 보기</a>`);
+ mk.push(m);pts.push([la,ln]);
+ if(t=='s'||t=='t'){return}
+ const li=document.createElement('li');
+ li.innerHTML=`<div class="n">${esc(n)}</div><div class="t">${esc(d)}</div><div class="a">${esc(a)}</div><div class="l"><a href="${nv(n)}" target="_blank" rel="noopener">네이버 지도</a></div>`;
+ li.onclick=e=>{if(e.target.tagName==='A')return;map.flyTo([la,ln],17);m.openPopup();document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})};
+ document.getElementById(t=='r'?'rest':'cafe').appendChild(li);
+});
+map.fitBounds(pts,{padding:[30,30]});
+</script>
+</body>
+</html>
